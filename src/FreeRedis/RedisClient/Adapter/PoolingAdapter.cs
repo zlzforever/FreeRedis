@@ -44,6 +44,11 @@ namespace FreeRedis
                 _ib.Dispose();
             }
 
+            public override void Refersh(IRedisSocket redisSocket)
+            {
+                var tmprds = redisSocket as DefaultRedisSocket.TempProxyRedisSocket;
+                if (tmprds != null) _ib.Get(tmprds._poolkey);
+            }
             public override IRedisSocket GetRedisSocket(CommandPacket cmd)
             {
                 var poolkey = GetIdleBusKey(cmd);
@@ -51,6 +56,7 @@ namespace FreeRedis
                 var cli = pool.Get();
                 var rds = cli.Value.Adapter.GetRedisSocket(null);
                 var rdsproxy = DefaultRedisSocket.CreateTempProxy(rds, () => pool.Return(cli));
+                rdsproxy._poolkey = poolkey;
                 rdsproxy._pool = pool;
                 return rdsproxy;
             }
@@ -67,7 +73,7 @@ namespace FreeRedis
                         try
                         {
                             rds.Write(cmd);
-                            rt = rds.Read(cmd._flagReadbytes);
+                            rt = rds.Read(cmd);
                         }
                         catch (Exception ex)
                         {
@@ -81,7 +87,6 @@ namespace FreeRedis
                         }
                         throw ioex;
                     }
-                    rt.IsErrorThrow = TopOwner._isThrowRedisSimpleError;
                     return parse(rt);
                 });
             }
@@ -93,7 +98,6 @@ namespace FreeRedis
                 {
                     var asyncRds = _asyncManager.GetAsyncRedisSocket(cmd);
                     var rt = await asyncRds.WriteAsync(cmd);
-                    rt.IsErrorThrow = TopOwner._isThrowRedisSimpleError;
                     return parse(rt);
                 });
             }
@@ -107,7 +111,7 @@ namespace FreeRedis
                     if (cmdset != null)
                     {
                         if (!_is_single && (cmdset.Status & CommandSets.LocalStatus.check_single) == CommandSets.LocalStatus.check_single)
-                            throw new RedisServerException($"RedisClient: Method cannot be used in {UseType} mode. You can set \"max pool size=1\", but it is not singleton mode.");
+                            throw new RedisClientException($"Method cannot be used in {UseType} mode. You can set \"max pool size=1\", but it is not singleton mode.");
 
                         if (_rw_splitting &&
                             ((cmdset.Tag & CommandSets.ServerTag.read) == CommandSets.ServerTag.read ||
@@ -118,7 +122,6 @@ namespace FreeRedis
                             {
                                 var rndkey = rndkeys[_rnd.Value.Next(0, rndkeys.Length)];
                                 return rndkey;
-
                             }
                         }
                     }

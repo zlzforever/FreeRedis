@@ -9,7 +9,7 @@ namespace FreeRedis
 {
     partial class RedisClient
     {
-        class SingleInsideAdapter : BaseAdapter
+        internal class SingleInsideAdapter : BaseAdapter
         {
             readonly IRedisSocket _redisSocket;
 
@@ -29,6 +29,9 @@ namespace FreeRedis
                 _redisSocket.Dispose();
             }
 
+            public override void Refersh(IRedisSocket redisSocket)
+            {
+            }
             public override IRedisSocket GetRedisSocket(CommandPacket cmd)
             {
                 return DefaultRedisSocket.CreateTempProxy(_redisSocket, null);
@@ -38,9 +41,8 @@ namespace FreeRedis
                 return TopOwner.LogCall(cmd, () =>
                 {
                     _redisSocket.Write(cmd);
-                    var rt = _redisSocket.Read(cmd._flagReadbytes);
+                    var rt = _redisSocket.Read(cmd);
                     if (cmd._command == "QUIT") _redisSocket.ReleaseSocket();
-                    rt.IsErrorThrow = TopOwner._isThrowRedisSimpleError;
                     return parse(rt);
                 });
             }

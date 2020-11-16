@@ -17,7 +17,7 @@ namespace FreeRedis
 {
     public static partial class RespHelper
     {
-        internal partial class Resp3Reader
+        public partial class Resp3Reader
         {
             internal Stream _stream;
 
@@ -317,7 +317,7 @@ namespace FreeRedis
             }
         }
 
-        internal class Resp3Writer
+        public class Resp3Writer
         {
             internal Stream _stream;
             internal Encoding _encoding;
@@ -714,7 +714,7 @@ namespace FreeRedis
         #endregion
 
         #region 类型转换
-        internal static string ToInvariantCultureToString(this object obj) => string.Format(CultureInfo.InvariantCulture, @"{0}", obj);
+        internal static string ToInvariantCultureToString(this object obj) => obj is string objstr ?  objstr : string.Format(CultureInfo.InvariantCulture, @"{0}", obj);
         public static T MapToClass<T>(this object[] list, Encoding encoding)
         {
             if (list == null) return default(T);
@@ -923,8 +923,7 @@ namespace FreeRedis
         protected internal bool IsEnd { get; protected set; }
         public RedisMessageType MessageType { get; protected set; }
         public bool IsError => this.MessageType == RedisMessageType.SimpleError || this.MessageType == RedisMessageType.BlobError;
-        public bool IsErrorThrow { get; internal set; } = true;
-        public string SimpleError { get; protected set; }
+        internal string SimpleError { get; set; }
         public Encoding Encoding { get; internal set; }
 
         internal RedisResult(object value, bool isend, RedisMessageType msgtype)
@@ -936,12 +935,12 @@ namespace FreeRedis
         }
         public RedisResult ThrowOrNothing()
         {
-            if (IsError && IsErrorThrow) throw new RedisServerException(this.SimpleError);
+            if (IsError) throw new RedisServerException(this.SimpleError);
             return this;
         }
         public TValue ThrowOrValue<TValue>(Func<object, TValue> value)
         {
-            if (IsError && IsErrorThrow) throw new RedisServerException(this.SimpleError);
+            if (IsError) throw new RedisServerException(this.SimpleError);
             var newval = value(this.Value);
             if (newval == null && typeof(TValue).IsArray) newval = (TValue)typeof(TValue).CreateInstanceGetDefaultValue();
             this.Value = newval;
@@ -949,7 +948,7 @@ namespace FreeRedis
         }
         public TValue ThrowOrValue<TValue>(Func<object[], bool, TValue> value)
         {
-            if (IsError && IsErrorThrow) throw new RedisServerException(this.SimpleError);
+            if (IsError) throw new RedisServerException(this.SimpleError);
             var newval = value(this.Value as object[], false);
             if (newval == null && typeof(TValue).IsArray) newval = (TValue)typeof(TValue).CreateInstanceGetDefaultValue();
             this.Value = newval;
@@ -957,12 +956,12 @@ namespace FreeRedis
         }
         public object ThrowOrValue()
         {
-            if (IsError && IsErrorThrow) throw new RedisServerException(this.SimpleError);
+            if (IsError) throw new RedisServerException(this.SimpleError);
             return this.Value;
         }
         public TValue ThrowOrValue<TValue>(bool useDefaultValue = false)
         {
-            if (IsError && IsErrorThrow) throw new RedisServerException(this.SimpleError);
+            if (IsError) throw new RedisServerException(this.SimpleError);
             if (useDefaultValue == false)
             {
                 var newval = this.Value.ConvertTo<TValue>();

@@ -21,14 +21,31 @@ namespace FreeRedis
 
         async internal Task<T> LogCallAsync<T>(CommandPacket cmd, Func<Task<T>> func)
         {
-            if (this.Notice == null) return await func();
+            cmd.Prefix(Prefix);
+            var isnotice = this.Notice != null;
+            if (isnotice == false && this.Interceptors.Any() == false) return await func();
             Exception exception = null;
-            Stopwatch sw = new Stopwatch();
-            T ret = default;
-            sw.Start();
+
+            T ret = default(T);
+            var isaopval = false;
+            IInterceptor[] aops = new IInterceptor[this.Interceptors.Count + (isnotice ? 1 : 0)];
+            Stopwatch[] aopsws = new Stopwatch[aops.Length];
+            for (var idx = 0; idx < aops.Length; idx++)
+            {
+                aopsws[idx] = new Stopwatch();
+                aopsws[idx].Start();
+                aops[idx] = isnotice && idx == aops.Length - 1 ? new NoticeCallInterceptor(this) : this.Interceptors[idx]?.Invoke();
+                var args = new InterceptorBeforeEventArgs(this, cmd, typeof(T));
+                aops[idx].Before(args);
+                if (args.ValueIsChanged && args.Value is T argsValue)
+                {
+                    isaopval = true;
+                    ret = argsValue;
+                }
+            }
             try
             {
-                ret = await func();
+                if (isaopval == false) ret = await func();
                 return ret;
             }
             catch (Exception ex)
@@ -38,8 +55,12 @@ namespace FreeRedis
             }
             finally
             {
-                sw.Stop();
-                LogCallFinally(cmd, ret, sw, exception);
+                for (var idx = 0; idx < aops.Length; idx++)
+                {
+                    aopsws[idx].Stop();
+                    var args = new InterceptorAfterEventArgs(this, cmd, typeof(T), ret, exception, aopsws[idx].ElapsedMilliseconds);
+                    aops[idx].After(args);
+                }
             }
         }
     }

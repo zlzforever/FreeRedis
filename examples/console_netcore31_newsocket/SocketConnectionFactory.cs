@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace console_netcore31_newsocket
 {
-    internal class SocketConnectionFactory : IConnectionFactory, IAsyncDisposable
+    public class SocketConnectionFactory : IConnectionFactory, IAsyncDisposable
     {
         private readonly SocketTransportOptions _options;
         private readonly MemoryPool<byte> _memoryPool;
